@@ -1,0 +1,19 @@
+{
+    "CN": "test request",
+    "hosts": [
+      "127.0.0.1"
+    ],
+    "key": {
+        "algo": "rsa",
+        "size": 2048
+    },
+    "names": [
+      {
+        "C": "JP",
+        "ST": "Tokyo",
+        "L": "Minato-ku",
+        "O": "alpha",
+        "OU": "bravo"
+      }
+    ]
+}
