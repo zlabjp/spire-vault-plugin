@@ -12,3 +12,7 @@ This plugin regards HashiCorp Vault as the Upstream CA and requests to sign and 
 ### Diagram
 
 ![vault-upstrea-ca-flow](images/vault-upstream-ca-flow.png)
+
+## LICENSE
+
+This software is released under the MIT License.
