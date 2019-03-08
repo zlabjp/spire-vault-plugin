@@ -78,8 +78,6 @@ type ClientParams struct {
 	// If true, client accepts any certificates.
 	// It should be used only test environment so on.
 	TLSSKipVerify bool
-	// Request to issue a certificate with the specified TTL
-	TTL string
 }
 
 type Client struct {
@@ -254,11 +252,11 @@ func (c *Client) TLSAuth() error {
 // cn = Common Name
 // csr = PEM format CSR
 // see: https://www.vaultproject.io/api/secret/pki/index.html#sign-intermediate
-func (c *Client) SignIntermediate(cn string, csr []byte) (*SignCSRResponse, error) {
+func (c *Client) SignIntermediate(cn, ttl string, csr []byte) (*SignCSRResponse, error) {
 	reqData := map[string]interface{}{
 		"common_name": cn,
 		"csr":         string(csr),
-		"ttl":         c.clientParams.TTL,
+		"ttl":         ttl,
 	}
 
 	path := fmt.Sprintf("/%s/root/sign-intermediate", c.clientParams.PKIMountPoint)

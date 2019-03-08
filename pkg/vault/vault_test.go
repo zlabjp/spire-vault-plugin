@@ -30,6 +30,7 @@ const (
 	clientKey  = "../fake/fixtures/client-key.pem"
 	testReqCSR = "../fake/fixtures/test-req.csr"
 	testReqCN  = "test request"
+	testTTL    = ""
 )
 
 func getTestCertPool(certPemPath string) (*x509.CertPool, error) {
@@ -287,7 +288,7 @@ func TestSignIntermediate(t *testing.T) {
 		t.Errorf("failed to prepare vault client: %v", err)
 	}
 
-	resp, err := vClient.SignIntermediate(testReqCN, []byte(testReqCSR))
+	resp, err := vClient.SignIntermediate(testReqCN, testTTL, []byte(testReqCSR))
 	if err != nil {
 		t.Errorf("error from SignIntermediate(): %v", err)
 	} else if resp == nil {
@@ -336,7 +337,7 @@ func TestSignIntermediateError(t *testing.T) {
 		t.Errorf("failed to prepare vault client: %v", err)
 	}
 
-	_, err = vClient.SignIntermediate(testReqCN, []byte(testReqCSR))
+	_, err = vClient.SignIntermediate(testReqCN, testTTL, []byte(testReqCSR))
 	if err == nil {
 		t.Error("error is empty")
 	}

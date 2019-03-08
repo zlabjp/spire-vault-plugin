@@ -113,7 +113,6 @@ func (p *VaultPlugin) Configure(ctx context.Context, req *spi.ConfigureRequest) 
 		PKIMountPoint:     config.PKIMountPoint,
 		ClientKeyPath:     config.CertAuthConfig.ClientKeyPath,
 		ClientCertPath:    config.CertAuthConfig.ClientCertPath,
-		TTL:               config.TTL,
 		TLSSKipVerify:     config.TLSSkipVerify,
 	}
 	if err := vaultConfig.SetClientParams(cp); err != nil {
@@ -135,7 +134,7 @@ func (p *VaultPlugin) SubmitCSR(ctx context.Context, req *upstreamca.SubmitCSRRe
 	certReq := &pem.Block{Type: "CERTIFICATE REQUEST", Bytes: req.Csr}
 	pemData := pem.EncodeToMemory(certReq)
 
-	signResp, err := p.vc.SignIntermediate(CommonName, pemData)
+	signResp, err := p.vc.SignIntermediate(CommonName, p.config.TTL, pemData)
 	if err != nil {
 		return nil, fmt.Errorf("SubmitCSR request is failed: %v", err)
 	}

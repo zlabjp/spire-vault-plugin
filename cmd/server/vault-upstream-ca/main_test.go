@@ -215,6 +215,7 @@ func TestSubmitCSR(t *testing.T) {
 		t.Error(err)
 	}
 	p.vc = client
+	p.config = &VaultPluginConfig{}
 
 	testCSR, err := ioutil.ReadFile("../../../pkg/fake/fixtures/test-req.csr")
 	if err != nil {
@@ -267,6 +268,7 @@ func TestSubmitCSRError(t *testing.T) {
 		t.Error(err)
 	}
 	p.vc = client
+	p.config = &VaultPluginConfig{}
 
 	testCSR, err := ioutil.ReadFile("../../../pkg/fake/fixtures/test-req.csr")
 	if err != nil {
