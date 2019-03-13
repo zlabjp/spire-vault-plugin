@@ -13,15 +13,18 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 	"github.com/hashicorp/hcl"
 	"github.com/spiffe/spire/pkg/common/pemutil"
 	spi "github.com/spiffe/spire/proto/common/plugin"
 	"github.com/spiffe/spire/proto/server/upstreamca"
 
+	"github.com/zlabjp/spire-vault-plugin/pkg/common"
 	"github.com/zlabjp/spire-vault-plugin/pkg/vault"
 )
 
@@ -31,6 +34,7 @@ const (
 
 // VaultPlugin implements UpstreamCA Plugin interface
 type VaultPlugin struct {
+	logger *log.Logger
 	config *VaultPluginConfig
 	vc     *vault.Client
 
@@ -77,10 +81,6 @@ type VaultCertAuthConfig struct {
 	ClientKeyPath string `hcl:"client_key_path"`
 }
 
-const (
-	pluginName = "vault"
-)
-
 func New() *VaultPlugin {
 	return &VaultPlugin{
 		mu: &sync.RWMutex{},
@@ -105,6 +105,7 @@ func (p *VaultPlugin) Configure(ctx context.Context, req *spi.ConfigureRequest) 
 	}
 
 	vaultConfig := vault.New(am).WithEnvVar()
+	vaultConfig.Logger = p.logger
 	cp := &vault.ClientParams{
 		VaultAddr:         config.VaultAddr,
 		CACertPath:        config.CACertPath,
@@ -189,15 +190,27 @@ func validatePluginConfig(c *VaultPluginConfig) []string {
 }
 
 func main() {
+	logger := hclog.New(&hclog.LoggerOptions{
+		Name:  common.PluginName,
+		Level: hclog.Trace,
+	})
+	stdLogger := logger.StandardLogger(&hclog.StandardLoggerOptions{
+		InferLevels: true,
+	})
+
+	p := New()
+	p.logger = stdLogger
+
 	plugin.Serve(&plugin.ServeConfig{
 		Plugins: map[string]plugin.Plugin{
-			pluginName: upstreamca.GRPCPlugin{
+			common.PluginName: upstreamca.GRPCPlugin{
 				ServerImpl: &upstreamca.GRPCServer{
-					Plugin: New(),
+					Plugin: p,
 				},
 			},
 		},
 		HandshakeConfig: upstreamca.Handshake,
 		GRPCServer:      plugin.DefaultGRPCServer,
+		Logger:          logger,
 	})
 }
