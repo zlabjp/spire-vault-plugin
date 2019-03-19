@@ -12,6 +12,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"strings"
 	"testing"
 	"text/template"
@@ -34,6 +35,12 @@ const (
 type configParam struct {
 	Addr  string
 	Token string
+}
+
+func getTestLogger() *log.Logger {
+	logger := &log.Logger{}
+	logger.SetOutput(new(bytes.Buffer))
+	return logger
 }
 
 func getFakeConfigureRequestCertAuth(addr string) (*plugin.ConfigureRequest, error) {
@@ -126,6 +133,7 @@ func TestConfigureCertConfig(t *testing.T) {
 	defer s.Close()
 
 	p := New()
+	p.logger = getTestLogger()
 
 	ctx := context.Background()
 	req, err := getFakeConfigureRequestCertAuth(fmt.Sprintf("https://%v/", addr))
@@ -152,6 +160,7 @@ func TestConfigureTokenConfig(t *testing.T) {
 	defer s.Close()
 
 	p := New()
+	p.logger = getTestLogger()
 
 	ctx := context.Background()
 	req, err := getFakeConfigureRequestTokenAuth(fmt.Sprintf("https://%v/", addr), "test-token")
@@ -210,6 +219,7 @@ func TestSubmitCSR(t *testing.T) {
 	defer s.Close()
 
 	p := New()
+	p.logger = getTestLogger()
 	client, err := getFakeVaultClientWithCertAuth(addr, "test-auth", "test-pki")
 	if err != nil {
 		t.Error(err)
@@ -263,6 +273,7 @@ func TestSubmitCSRError(t *testing.T) {
 	defer s.Close()
 
 	p := New()
+	p.logger = getTestLogger()
 	client, err := getFakeVaultClientWithCertAuth(addr, "test-auth", "test-pki")
 	if err != nil {
 		t.Error(err)

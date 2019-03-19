@@ -8,11 +8,13 @@
 package vault
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"reflect"
 	"testing"
@@ -32,6 +34,12 @@ const (
 	testReqCN  = "test request"
 	testTTL    = ""
 )
+
+func getTestLogger() *log.Logger {
+	logger := &log.Logger{}
+	logger.SetOutput(new(bytes.Buffer))
+	return logger
+}
 
 func getTestCertPool(certPemPath string) (*x509.CertPool, error) {
 	wantPool := x509.NewCertPool()
@@ -79,6 +87,7 @@ func TestNewAuthenticatedClientWithCertAuth(t *testing.T) {
 	defer s.Close()
 
 	c := New(CERT)
+	c.Logger = getTestLogger()
 	cp := &ClientParams{
 		VaultAddr:      fmt.Sprintf("https://%v/", addr),
 		CACertPath:     caCert,
@@ -110,6 +119,7 @@ func TestNewAuthenticatedClientWithCertAuthError(t *testing.T) {
 	defer s.Close()
 
 	c := New(CERT)
+	c.Logger = getTestLogger()
 	cp := &ClientParams{
 		VaultAddr:      fmt.Sprintf("https://%v/", addr),
 		CACertPath:     caCert,
@@ -140,6 +150,7 @@ func TestNewAuthenticatedClientWithTokenAuth(t *testing.T) {
 	defer s.Close()
 
 	c := New(TOKEN)
+	c.Logger = getTestLogger()
 	cp := &ClientParams{
 		VaultAddr:      fmt.Sprintf("https://%v/", addr),
 		CACertPath:     caCert,
@@ -158,6 +169,7 @@ func TestNewAuthenticatedClientWithTokenAuth(t *testing.T) {
 
 func TestSetClientParams(t *testing.T) {
 	c := New(CERT)
+	c.Logger = getTestLogger()
 	c.clientParams.VaultAddr = "https://example.org/vault"
 	c.clientParams.CACertPath = "path/to/test-ca.pem"
 	c.clientParams.ClientCertPath = "path/to/client-cert.pem"
@@ -189,6 +201,7 @@ func TestSetClientParams(t *testing.T) {
 
 func TestConfigureTLSWithCertAuth(t *testing.T) {
 	c := New(CERT)
+	c.Logger = getTestLogger()
 	c.clientParams.CACertPath = caCert
 	c.clientParams.ClientCertPath = clientCert
 	c.clientParams.ClientKeyPath = clientKey
@@ -230,6 +243,7 @@ func TestConfigureTLSWithCertAuth(t *testing.T) {
 
 func TestConfigureTLSWithTokenAuth(t *testing.T) {
 	c := New(TOKEN)
+	c.Logger = getTestLogger()
 	c.clientParams.CACertPath = caCert
 	vConfig := vapi.DefaultConfig()
 
@@ -278,6 +292,7 @@ func TestSignIntermediate(t *testing.T) {
 	defer s.Close()
 
 	c := New(CERT)
+	c.Logger = getTestLogger()
 	c.clientParams.VaultAddr = fmt.Sprintf("https://%v/", addr)
 	c.clientParams.CACertPath = caCert
 	c.clientParams.ClientCertPath = clientCert
@@ -327,6 +342,7 @@ func TestSignIntermediateError(t *testing.T) {
 	defer s.Close()
 
 	c := New(CERT)
+	c.Logger = getTestLogger()
 	c.clientParams.VaultAddr = fmt.Sprintf("https://%v/", addr)
 	c.clientParams.CACertPath = caCert
 	c.clientParams.ClientCertPath = clientCert

@@ -12,6 +12,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"reflect"
@@ -54,6 +55,7 @@ func ParseAuthMethod(method string) (AuthMethod, error) {
 
 // Config represents configuration parameters for vault client
 type Config struct {
+	Logger *log.Logger
 	// Name of method to use authenticate to vault. value must be upper case.
 	method AuthMethod
 	// vault client parameters
@@ -98,6 +100,7 @@ type SignCSRResponse struct {
 // New returns a new *Config with default parameters.
 func New(authMethod AuthMethod) *Config {
 	return &Config{
+		Logger: log.New(os.Stderr, "", log.LstdFlags),
 		method: authMethod,
 		clientParams: &ClientParams{
 			TLSAuthMountPoint: DefaultCertMountPoint,
@@ -153,8 +156,23 @@ func (c *Config) NewAuthenticatedClient() (*Client, error) {
 	case TOKEN:
 		client.SetToken(c.clientParams.Token)
 	case CERT:
-		if err := client.TLSAuth(); err != nil {
+		sec, err := client.TLSAuth()
+		if err != nil {
 			return nil, err
+		}
+		if sec == nil {
+			return nil, errors.New("authentication response is nil")
+		}
+		if sec.Auth.Renewable {
+			c.Logger.Print("token will be renewed")
+			renew, err := NewRenew(vc, sec)
+			renew.Logger = c.Logger
+			if err != nil {
+				return nil, err
+			}
+			go renew.Run()
+		} else {
+			c.Logger.Print("token never renew")
 		}
 	}
 
@@ -231,21 +249,21 @@ func (c *Client) SetToken(v string) {
 }
 
 // TLSAuth authenticates to vault server with TLS certificate method
-func (c *Client) TLSAuth() error {
+func (c *Client) TLSAuth() (*vapi.Secret, error) {
 	c.vaultClient.ClearToken()
 
 	path := fmt.Sprintf("auth/%v/login", c.clientParams.TLSAuthMountPoint)
 	secret, err := c.vaultClient.Logical().Write(path, map[string]interface{}{})
 	if err != nil {
-		return fmt.Errorf("authentication failed: %v", err)
+		return nil, fmt.Errorf("authentication failed: %v", err)
 	}
 
 	tokenId, err := secret.TokenID()
 	if err != nil {
-		return fmt.Errorf("authentication is successful, but could not get token: %v", err)
+		return nil, fmt.Errorf("authentication is successful, but could not get token: %v", err)
 	}
 	c.vaultClient.SetToken(tokenId)
-	return nil
+	return secret, nil
 }
 
 // SignIntermediate requests sign-intermediate endpoint to generate certificate.
