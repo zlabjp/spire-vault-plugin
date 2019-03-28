@@ -1,10 +1,10 @@
-out_dir := bin
+out_dir := out/bin
 
 utils = github.com/goreleaser/goreleaser \
 		github.com/golang/dep/cmd/dep
 
-build:
-	cd cmd/server/vault-upstream-ca && go build -o ../../../$(out_dir)/server/vault-upstream-ca  -i
+build: clean
+	cd cmd/server/vault-upstream-ca && go build -o ../../../$(out_dir)/server/vault_upstream_ca  -i
 
 utils: $(utils)
 
@@ -26,7 +26,8 @@ release:
 	goreleaser || true
 
 clean:
-	go clean
+	go clean ./cmd/... ./pkg/...
+	rm -rf out
 
 noop:
 
