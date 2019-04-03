@@ -16,6 +16,7 @@ import (
 	"strings"
 	"testing"
 	"text/template"
+	"time"
 
 	"github.com/spiffe/spire/proto/common/plugin"
 	"github.com/spiffe/spire/proto/server/upstreamca"
@@ -174,6 +175,29 @@ func TestConfigureTokenConfig(t *testing.T) {
 	}
 }
 
+func TestConfigureErrorInvalidTTL(t *testing.T) {
+	file, err := ioutil.ReadFile("./fixtures/invalid-ttl.hcl")
+	if err != nil {
+		t.Errorf("failed to read fixture file: %v", err)
+	}
+
+	req := &plugin.ConfigureRequest{
+		Configuration: string(file),
+	}
+
+	p := New()
+	p.logger = getTestLogger()
+	ctx := context.Background()
+	_, err = p.Configure(ctx, req)
+
+	wantErrPrefix := "failed to parse TTL value: time: missing unit in duration"
+	if err == nil {
+		t.Errorf("expected got an error")
+	} else if !strings.HasPrefix(err.Error(), wantErrPrefix) {
+		t.Errorf("got %v, want prefix %v", err, wantErrPrefix)
+	}
+}
+
 func TestConfigureError(t *testing.T) {
 	ctx := context.Background()
 	req := &plugin.ConfigureRequest{
@@ -225,6 +249,7 @@ func TestSubmitCSR(t *testing.T) {
 		t.Error(err)
 	}
 	p.vc = client
+	p.certTTL = time.Duration(60 * time.Minute)
 	p.config = &VaultPluginConfig{}
 
 	testCSR, err := ioutil.ReadFile("../../../pkg/fake/fixtures/test-req.csr")
