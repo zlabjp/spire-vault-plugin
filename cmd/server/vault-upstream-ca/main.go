@@ -16,6 +16,7 @@ import (
 	"log"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
@@ -34,9 +35,10 @@ const (
 
 // VaultPlugin implements UpstreamCA Plugin interface
 type VaultPlugin struct {
-	logger *log.Logger
-	config *VaultPluginConfig
-	vc     *vault.Client
+	logger  *log.Logger
+	config  *VaultPluginConfig
+	vc      *vault.Client
+	certTTL time.Duration
 
 	mu *sync.RWMutex
 }
@@ -58,7 +60,7 @@ type VaultPluginConfig struct {
 	// Path to a CA certificate file that the client verifies the server certificate.
 	// PEM and DER format is supported.
 	CACertPath string `hcl:"ca_cert_path"`
-	// Request to issue a certificate with the specified TTL
+	// Request to issue a certificate with the specified TTL (Go-style time duration)
 	TTL string `hcl:"ttl"`
 	// If true, vault client accepts any server certificates.
 	// It should be used only test environment so on.
@@ -88,6 +90,7 @@ func New() *VaultPlugin {
 }
 
 func (p *VaultPlugin) Configure(ctx context.Context, req *spi.ConfigureRequest) (*spi.ConfigureResponse, error) {
+	var err error
 	config := new(VaultPluginConfig)
 	if err := hcl.Decode(config, req.Configuration); err != nil {
 		return nil, fmt.Errorf("failed to decode configuration file: %v", err)
@@ -98,6 +101,14 @@ func (p *VaultPlugin) Configure(ctx context.Context, req *spi.ConfigureRequest) 
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
+	var ttl time.Duration
+	if config.TTL != "" {
+		ttl, err = time.ParseDuration(config.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse TTL value: %v", err)
+		}
+	}
 
 	am, err := vault.ParseAuthMethod(config.AuthMethod)
 	if err != nil {
@@ -127,6 +138,7 @@ func (p *VaultPlugin) Configure(ctx context.Context, req *spi.ConfigureRequest) 
 
 	p.config = config
 	p.vc = vc
+	p.certTTL = ttl
 
 	return &spi.ConfigureResponse{}, nil
 }
@@ -135,7 +147,12 @@ func (p *VaultPlugin) SubmitCSR(ctx context.Context, req *upstreamca.SubmitCSRRe
 	certReq := &pem.Block{Type: "CERTIFICATE REQUEST", Bytes: req.Csr}
 	pemData := pem.EncodeToMemory(certReq)
 
-	signResp, err := p.vc.SignIntermediate(CommonName, p.config.TTL, pemData)
+	var ttl string
+	if p.certTTL != time.Duration(0) {
+		ttl = fmt.Sprintf("%d", int64(p.certTTL/time.Second))
+	}
+
+	signResp, err := p.vc.SignIntermediate(CommonName, ttl, pemData)
 	if err != nil {
 		return nil, fmt.Errorf("SubmitCSR request is failed: %v", err)
 	}

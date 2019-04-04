@@ -12,7 +12,7 @@ The plugin accepts the following configuration options:
 | auth_mount_point | string |  | Name of mount point where TLS auth method is mounted | cert |
 | pki_mount_point  | string |  | Name of mount point where PKI secret engine is mounted | pki |
 | ca_cert_path     | string |  | Path to a CA certificate file that the client verifies the server certificate. PEM and DER is supported. | `${VAULT_CACERT}` |
-| ttl              | string |  | Request to issue a certificate with the specified TTL | |
+| ttl              | string |  | Request to issue a certificate with the specified TTL (Go-Style time duration value e.g., 1h)  | |
 | tls_skip_verify  | string |  | If true, vault client accepts any server certificates | false |
 | cert_auth_config | struct |  | Configuration parameters to use when auth method is "cert" | |
 | token_auth_config | struct | | Configuration parameters to use when auth method is "token" | |
