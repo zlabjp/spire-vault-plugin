@@ -303,7 +303,12 @@ func TestSignIntermediate(t *testing.T) {
 		t.Errorf("failed to prepare vault client: %v", err)
 	}
 
-	resp, err := vClient.SignIntermediate(testReqCN, testTTL, []byte(testReqCSR))
+	csrPEM, err := ioutil.ReadFile(testReqCSR)
+	if err != nil {
+		t.Errorf("failed to read csr data: %v", err)
+	}
+
+	resp, err := vClient.SignIntermediate(testTTL, csrPEM)
 	if err != nil {
 		t.Errorf("error from SignIntermediate(): %v", err)
 	} else if resp == nil {
@@ -353,7 +358,12 @@ func TestSignIntermediateError(t *testing.T) {
 		t.Errorf("failed to prepare vault client: %v", err)
 	}
 
-	_, err = vClient.SignIntermediate(testReqCN, testTTL, []byte(testReqCSR))
+	csrPEM, err := ioutil.ReadFile(testReqCSR)
+	if err != nil {
+		t.Errorf("failed to read csr data: %v", err)
+	}
+
+	_, err = vClient.SignIntermediate(testTTL, csrPEM)
 	if err == nil {
 		t.Error("error is empty")
 	}

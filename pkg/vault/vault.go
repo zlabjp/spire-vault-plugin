@@ -270,11 +270,18 @@ func (c *Client) TLSAuth() (*vapi.Secret, error) {
 // cn = Common Name
 // csr = PEM format CSR
 // see: https://www.vaultproject.io/api/secret/pki/index.html#sign-intermediate
-func (c *Client) SignIntermediate(cn, ttl string, csr []byte) (*SignCSRResponse, error) {
+func (c *Client) SignIntermediate(ttl string, csr []byte) (*SignCSRResponse, error) {
+	csrObj, err := pemutil.ParseCertificateRequest(csr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse CSR PEM data: %v", err)
+	}
+
 	reqData := map[string]interface{}{
-		"common_name": cn,
-		"csr":         string(csr),
-		"ttl":         ttl,
+		"common_name":  csrObj.Subject.CommonName,
+		"organization": strings.Join(csrObj.Subject.Organization, ","),
+		"country":      strings.Join(csrObj.Subject.Country, ","),
+		"csr":          string(csr),
+		"ttl":          ttl,
 	}
 
 	path := fmt.Sprintf("/%s/root/sign-intermediate", c.clientParams.PKIMountPoint)

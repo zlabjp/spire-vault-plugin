@@ -29,10 +29,6 @@ import (
 	"github.com/zlabjp/spire-vault-plugin/pkg/vault"
 )
 
-const (
-	CommonName = "spire-server"
-)
-
 // VaultPlugin implements UpstreamCA Plugin interface
 type VaultPlugin struct {
 	logger  *log.Logger
@@ -152,7 +148,7 @@ func (p *VaultPlugin) SubmitCSR(ctx context.Context, req *upstreamca.SubmitCSRRe
 		ttl = fmt.Sprintf("%d", int64(p.certTTL/time.Second))
 	}
 
-	signResp, err := p.vc.SignIntermediate(CommonName, ttl, pemData)
+	signResp, err := p.vc.SignIntermediate(ttl, pemData)
 	if err != nil {
 		return nil, fmt.Errorf("SubmitCSR request is failed: %v", err)
 	}
