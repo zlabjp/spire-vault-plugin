@@ -18,6 +18,8 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/spiffe/spire/pkg/common/pemutil"
+
 	"github.com/spiffe/spire/proto/common/plugin"
 	"github.com/spiffe/spire/proto/server/upstreamca"
 
@@ -107,10 +109,15 @@ func getFakeVaultClientWithCertAuth(addr, authMountP, pkiMountP string) (*vault.
 	return vaultConfig.NewAuthenticatedClient()
 }
 
-func getFakeSubmitCSRRequest(csr []byte) *upstreamca.SubmitCSRRequest {
-	return &upstreamca.SubmitCSRRequest{
-		Csr: csr,
+func getFakeSubmitCSRRequest(csr []byte) (*upstreamca.SubmitCSRRequest, error) {
+	csrDER, err := pemutil.ParseCertificateRequest(csr)
+	if err != nil {
+		return nil, err
 	}
+
+	return &upstreamca.SubmitCSRRequest{
+		Csr: csrDER.Raw,
+	}, nil
 }
 
 func TestConfigureCertConfig(t *testing.T) {
@@ -257,7 +264,10 @@ func TestSubmitCSR(t *testing.T) {
 		t.Errorf("failed to load fixture: %v", err)
 	}
 
-	testCSRReq := getFakeSubmitCSRRequest([]byte(testCSR))
+	testCSRReq, err := getFakeSubmitCSRRequest(testCSR)
+	if err != nil {
+		t.Errorf("failed to get fake CSR: %v", err)
+	}
 
 	ctx := context.Background()
 	resp, err := p.SubmitCSR(ctx, testCSRReq)
@@ -311,7 +321,10 @@ func TestSubmitCSRError(t *testing.T) {
 		t.Errorf("failed to load fixture: %v", err)
 	}
 
-	testCSRReq := getFakeSubmitCSRRequest([]byte(testCSR))
+	testCSRReq, err := getFakeSubmitCSRRequest(testCSR)
+	if err != nil {
+		t.Errorf("failed to get fake CSR: %v", err)
+	}
 
 	ctx := context.Background()
 	_, err = p.SubmitCSR(ctx, testCSRReq)
