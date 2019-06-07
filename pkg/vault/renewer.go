@@ -2,14 +2,13 @@ package vault
 
 import (
 	"fmt"
-	"log"
-	"os"
 
+	"github.com/hashicorp/go-hclog"
 	vapi "github.com/hashicorp/vault/api"
 )
 
 type Renew struct {
-	Logger  *log.Logger
+	Logger  hclog.Logger
 	renewer *vapi.Renewer
 }
 
@@ -21,7 +20,7 @@ func NewRenew(client *vapi.Client, secret *vapi.Secret) (*Renew, error) {
 		return nil, fmt.Errorf("failed to initialize Renewer: %v", err)
 	}
 	return &Renew{
-		Logger:  log.New(os.Stderr, "", log.LstdFlags),
+		Logger:  hclog.New(hclog.DefaultOptions),
 		renewer: renewer,
 	}, nil
 }
@@ -34,10 +33,10 @@ func (r *Renew) Run() {
 		select {
 		case err := <-r.renewer.DoneCh():
 			if err != nil {
-				r.Logger.Printf("failed to renew: %v\n", err.Error())
+				r.Logger.Warn("Failed to renew", "err", err.Error())
 			}
 		case renewal := <-r.renewer.RenewCh():
-			r.Logger.Printf("Successfully renewed: request_id=%v\n", renewal.Secret.RequestID)
+			r.Logger.Info("Successfully renewed", "request_id", renewal.Secret.RequestID)
 		}
 	}
 }

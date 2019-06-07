@@ -7,6 +7,7 @@ The plugin accepts the following configuration options:
 
 | key | type | required | description | default |
 |:----|:-----|:---------|:------------|:--------|
+| log_level   | string |   | The threshold for the logging  | info |
 | auth_method | string | ✓ | The method used for authentication to Vault. ("token", "cert") | |
 | vault_addr  | string |   | A URL of Vault server. (e.g., https://vault.example.com:8443/) | `${VAULT_ADDR}` |
 | auth_mount_point | string |  | Name of mount point where TLS auth method is mounted | cert |

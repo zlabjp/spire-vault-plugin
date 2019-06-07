@@ -13,7 +13,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 	"time"
@@ -29,9 +28,13 @@ import (
 	"github.com/zlabjp/spire-vault-plugin/pkg/vault"
 )
 
+const (
+	defaultLogLevel = "INFO"
+)
+
 // VaultPlugin implements UpstreamCA Plugin interface
 type VaultPlugin struct {
-	logger  *log.Logger
+	logger  hclog.Logger
 	config  *VaultPluginConfig
 	vc      *vault.Client
 	certTTL time.Duration
@@ -40,6 +43,8 @@ type VaultPlugin struct {
 }
 
 type VaultPluginConfig struct {
+	// The threshold for the logger.
+	LogLevel string `hcl:"log_level"`
 	// A URL of Vault server. (e.g., https://vault.example.com:8443/)
 	VaultAddr string `hcl:"vault_addr"`
 	// The method used for authentication to Vault.
@@ -97,6 +102,14 @@ func (p *VaultPlugin) Configure(ctx context.Context, req *spi.ConfigureRequest) 
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
+	var logLevel string
+	if config.LogLevel == "" {
+		logLevel = defaultLogLevel
+	} else {
+		logLevel = config.LogLevel
+	}
+	p.logger.SetLevel(hclog.LevelFromString(logLevel))
 
 	var ttl time.Duration
 	if config.TTL != "" {
@@ -204,15 +217,11 @@ func validatePluginConfig(c *VaultPluginConfig) []string {
 
 func main() {
 	logger := hclog.New(&hclog.LoggerOptions{
-		Name:  common.PluginName,
-		Level: hclog.Trace,
-	})
-	stdLogger := logger.StandardLogger(&hclog.StandardLoggerOptions{
-		InferLevels: true,
+		Name: common.PluginName,
 	})
 
 	p := New()
-	p.logger = stdLogger
+	p.logger = logger
 
 	plugin.Serve(&plugin.ServeConfig{
 		Plugins: map[string]plugin.Plugin{
