@@ -12,12 +12,12 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"reflect"
 	"strings"
 
+	"github.com/hashicorp/go-hclog"
 	vapi "github.com/hashicorp/vault/api"
 	"github.com/imdario/mergo"
 	"github.com/spiffe/spire/pkg/common/pemutil"
@@ -55,7 +55,7 @@ func ParseAuthMethod(method string) (AuthMethod, error) {
 
 // Config represents configuration parameters for vault client
 type Config struct {
-	Logger *log.Logger
+	Logger hclog.Logger
 	// Name of method to use authenticate to vault. value must be upper case.
 	method AuthMethod
 	// vault client parameters
@@ -100,7 +100,7 @@ type SignCSRResponse struct {
 // New returns a new *Config with default parameters.
 func New(authMethod AuthMethod) *Config {
 	return &Config{
-		Logger: log.New(os.Stderr, "", log.LstdFlags),
+		Logger: hclog.New(hclog.DefaultOptions),
 		method: authMethod,
 		clientParams: &ClientParams{
 			TLSAuthMountPoint: DefaultCertMountPoint,
@@ -164,7 +164,7 @@ func (c *Config) NewAuthenticatedClient() (*Client, error) {
 			return nil, errors.New("authentication response is nil")
 		}
 		if sec.Auth.Renewable {
-			c.Logger.Print("token will be renewed")
+			c.Logger.Debug("token will be renewed")
 			renew, err := NewRenew(vc, sec)
 			renew.Logger = c.Logger
 			if err != nil {
@@ -172,7 +172,7 @@ func (c *Config) NewAuthenticatedClient() (*Client, error) {
 			}
 			go renew.Run()
 		} else {
-			c.Logger.Print("token never renew")
+			c.Logger.Debug("token never renew")
 		}
 	}
 

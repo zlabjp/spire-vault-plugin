@@ -14,13 +14,14 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"reflect"
 	"testing"
 
+	"github.com/hashicorp/go-hclog"
 	vapi "github.com/hashicorp/vault/api"
 
+	"github.com/zlabjp/spire-vault-plugin/pkg/common"
 	"github.com/zlabjp/spire-vault-plugin/pkg/fake"
 )
 
@@ -35,10 +36,12 @@ const (
 	testTTL    = ""
 )
 
-func getTestLogger() *log.Logger {
-	logger := &log.Logger{}
-	logger.SetOutput(new(bytes.Buffer))
-	return logger
+func getTestLogger() hclog.Logger {
+	return hclog.New(&hclog.LoggerOptions{
+		Output: new(bytes.Buffer),
+		Name:   common.PluginName,
+		Level:  hclog.Debug,
+	})
 }
 
 func getTestCertPool(certPemPath string) (*x509.CertPool, error) {

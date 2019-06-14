@@ -12,17 +12,17 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"strings"
 	"testing"
 	"text/template"
 	"time"
 
+	hclog "github.com/hashicorp/go-hclog"
 	"github.com/spiffe/spire/pkg/common/pemutil"
-
 	"github.com/spiffe/spire/proto/common/plugin"
 	"github.com/spiffe/spire/proto/server/upstreamca"
 
+	"github.com/zlabjp/spire-vault-plugin/pkg/common"
 	"github.com/zlabjp/spire-vault-plugin/pkg/fake"
 	"github.com/zlabjp/spire-vault-plugin/pkg/vault"
 )
@@ -40,10 +40,12 @@ type configParam struct {
 	Token string
 }
 
-func getTestLogger() *log.Logger {
-	logger := &log.Logger{}
-	logger.SetOutput(new(bytes.Buffer))
-	return logger
+func getTestLogger() hclog.Logger {
+	return hclog.New(&hclog.LoggerOptions{
+		Output: new(bytes.Buffer),
+		Name:   common.PluginName,
+		Level:  hclog.Debug,
+	})
 }
 
 func getFakeConfigureRequestCertAuth(addr string) (*plugin.ConfigureRequest, error) {
