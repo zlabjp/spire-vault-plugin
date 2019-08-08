@@ -9,7 +9,6 @@ package main
 
 import (
 	"context"
-	"crypto/x509"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -18,11 +17,11 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/go-plugin"
 	"github.com/hashicorp/hcl"
+	"github.com/spiffe/spire/pkg/common/catalog"
 	"github.com/spiffe/spire/pkg/common/pemutil"
-	spi "github.com/spiffe/spire/proto/common/plugin"
-	"github.com/spiffe/spire/proto/server/upstreamca"
+	spi "github.com/spiffe/spire/proto/spire/common/plugin"
+	"github.com/spiffe/spire/proto/spire/server/upstreamca"
 
 	"github.com/zlabjp/spire-vault-plugin/pkg/common"
 	"github.com/zlabjp/spire-vault-plugin/pkg/vault"
@@ -43,8 +42,6 @@ type VaultPlugin struct {
 }
 
 type VaultPluginConfig struct {
-	// The threshold for the logger.
-	LogLevel string `hcl:"log_level"`
 	// A URL of Vault server. (e.g., https://vault.example.com:8443/)
 	VaultAddr string `hcl:"vault_addr"`
 	// The method used for authentication to Vault.
@@ -84,6 +81,15 @@ type VaultCertAuthConfig struct {
 	ClientKeyPath string `hcl:"client_key_path"`
 }
 
+// BuiltIn constructs a catalog Plugin using a new instance of this plugin.
+func BuiltIn() catalog.Plugin {
+	return builtin(New())
+}
+
+func builtin(p *VaultPlugin) catalog.Plugin {
+	return catalog.MakePlugin(common.PluginName, upstreamca.PluginServer(p))
+}
+
 func New() *VaultPlugin {
 	return &VaultPlugin{
 		mu: &sync.RWMutex{},
@@ -102,14 +108,6 @@ func (p *VaultPlugin) Configure(ctx context.Context, req *spi.ConfigureRequest) 
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
-
-	var logLevel string
-	if config.LogLevel == "" {
-		logLevel = defaultLogLevel
-	} else {
-		logLevel = config.LogLevel
-	}
-	p.logger.SetLevel(hclog.LevelFromString(logLevel))
 
 	var ttl time.Duration
 	if config.TTL != "" {
@@ -169,39 +167,44 @@ func (p *VaultPlugin) SubmitCSR(ctx context.Context, req *upstreamca.SubmitCSRRe
 		return nil, errors.New("SubmitCSR response is empty")
 	}
 
+	signedCert := &upstreamca.SignedCertificate{}
+	var certChain []byte
+
 	// Parse PEM format data to get DER format data
 	certificate, err := pemutil.ParseCertificate([]byte(signResp.CertPEM))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse certificate: %v", err)
 	}
+	certChain = append(certChain, certificate.Raw...)
 
-	// Combining CACertPEM and CACertChainPEM
-	var bundles []*x509.Certificate
+	signedCert.CertChain = certChain
+
+	var bundles []byte
 	if len(signResp.CACertChainPEM) != 0 {
 		for i := range signResp.CACertChainPEM {
 			c := signResp.CACertChainPEM[i]
-			bundles, err = pemutil.ParseCertificates([]byte(c))
+			b, err := pemutil.ParseCertificate([]byte(c))
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse upstream bundle certificates: %v", err)
 			}
+			bundles = append(bundles, b.Raw...)
 		}
 	}
-	caCertificates, err := pemutil.ParseCertificate([]byte(signResp.CACertPEM))
+	caCert, err := pemutil.ParseCertificate([]byte(signResp.CACertPEM))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse CA certificate: %v", err)
 	}
-	bundles = append(bundles, caCertificates)
+	bundles = append(bundles, caCert.Raw...)
 
-	var rawBundles []byte
-	for i := range bundles {
-		b := bundles[i]
-		rawBundles = append(rawBundles, b.Raw...)
-	}
+	signedCert.Bundle = bundles
 
 	return &upstreamca.SubmitCSRResponse{
-		Cert:                certificate.Raw,
-		UpstreamTrustBundle: rawBundles,
+		SignedCertificate: signedCert,
 	}, nil
+}
+
+func (p *VaultPlugin) SetLogger(log hclog.Logger) {
+	p.logger = log
 }
 
 func (p *VaultPlugin) GetPluginInfo(context.Context, *spi.GetPluginInfoRequest) (*spi.GetPluginInfoResponse, error) {
@@ -216,23 +219,5 @@ func validatePluginConfig(c *VaultPluginConfig) []string {
 }
 
 func main() {
-	logger := hclog.New(&hclog.LoggerOptions{
-		Name: common.PluginName,
-	})
-
-	p := New()
-	p.logger = logger
-
-	plugin.Serve(&plugin.ServeConfig{
-		Plugins: map[string]plugin.Plugin{
-			common.PluginName: upstreamca.GRPCPlugin{
-				ServerImpl: &upstreamca.GRPCServer{
-					Plugin: p,
-				},
-			},
-		},
-		HandshakeConfig: upstreamca.Handshake,
-		GRPCServer:      plugin.DefaultGRPCServer,
-		Logger:          logger,
-	})
+	catalog.PluginMain(BuiltIn())
 }

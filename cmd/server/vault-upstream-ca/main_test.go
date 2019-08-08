@@ -19,8 +19,8 @@ import (
 
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/spiffe/spire/pkg/common/pemutil"
-	"github.com/spiffe/spire/proto/common/plugin"
-	"github.com/spiffe/spire/proto/server/upstreamca"
+	"github.com/spiffe/spire/proto/spire/common/plugin"
+	"github.com/spiffe/spire/proto/spire/server/upstreamca"
 
 	"github.com/zlabjp/spire-vault-plugin/pkg/common"
 	"github.com/zlabjp/spire-vault-plugin/pkg/fake"
@@ -278,11 +278,15 @@ func TestSubmitCSR(t *testing.T) {
 	} else if resp == nil {
 		t.Error("SubmitCSR response is empty")
 	} else {
-		if resp.Cert == nil {
-			t.Error("Cert is empty")
-		}
-		if resp.UpstreamTrustBundle == nil {
-			t.Error("UpstreamTrustBundle is empty")
+		if resp.SignedCertificate == nil {
+			t.Error("SignedCertificate is empty")
+		} else {
+			if resp.SignedCertificate.CertChain == nil {
+				t.Errorf("CertChain is empty")
+			}
+			if resp.SignedCertificate.Bundle == nil {
+				t.Errorf("Bundle is empty")
+			}
 		}
 	}
 }
