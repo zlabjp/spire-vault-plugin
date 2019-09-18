@@ -180,6 +180,12 @@ func (p *VaultPlugin) SubmitCSR(ctx context.Context, req *upstreamca.SubmitCSRRe
 	signedCert.CertChain = certChain
 
 	var bundles []byte
+	caCert, err := pemutil.ParseCertificate([]byte(signResp.CACertPEM))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse CA certificate: %v", err)
+	}
+	bundles = append(bundles, caCert.Raw...)
+
 	if len(signResp.CACertChainPEM) != 0 {
 		for i := range signResp.CACertChainPEM {
 			c := signResp.CACertChainPEM[i]
@@ -190,12 +196,6 @@ func (p *VaultPlugin) SubmitCSR(ctx context.Context, req *upstreamca.SubmitCSRRe
 			bundles = append(bundles, b.Raw...)
 		}
 	}
-	caCert, err := pemutil.ParseCertificate([]byte(signResp.CACertPEM))
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse CA certificate: %v", err)
-	}
-	bundles = append(bundles, caCert.Raw...)
-
 	signedCert.Bundle = bundles
 
 	return &upstreamca.SubmitCSRResponse{
