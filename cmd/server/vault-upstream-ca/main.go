@@ -44,17 +44,14 @@ type VaultPlugin struct {
 type VaultPluginConfig struct {
 	// A URL of Vault server. (e.g., https://vault.example.com:8443/)
 	VaultAddr string `hcl:"vault_addr"`
-	// The method used for authentication to Vault.
-	// The available methods are only 'token' and 'cert'.
-	AuthMethod string `hcl:"auth_method"`
-	// Name of mount point where TLS auth method is mounted. (e.g., /auth/<mount_point>/login)
-	TLSAuthMountPoint string `hcl:"tls_auth_mount_point"`
 	// Name of mount point where PKI secret engine is mounted. (e.g., /<mount_point>/ca/pem)
 	PKIMountPoint string `hcl:"pki_mount_point"`
-	// Configuration parameters to use when auth method is 'token'
+	// Configuration parameters to use token auth method
 	TokenAuthConfig VaultTokenAuthConfig `hcl:"token_auth_config"`
-	// Configuration parameters to use when auth method is 'cert'
+	// Configuration parameters to use TLS certificate auth method
 	CertAuthConfig VaultCertAuthConfig `hcl:"cert_auth_config"`
+	// Configuration parameters to use AppRole auth method
+	AppRoleAuthConfig VaultAppRoleAuthConfig `hcl:"approle_auth_config"`
 	// Path to a CA certificate file that the client verifies the server certificate.
 	// PEM and DER format is supported.
 	CACertPath string `hcl:"ca_cert_path"`
@@ -73,12 +70,26 @@ type VaultTokenAuthConfig struct {
 
 // VaultCertAuthConfig represents parameters for cert auth method
 type VaultCertAuthConfig struct {
+	// Name of mount point where TLS auth method is mounted. (e.g., /auth/<mount_point>/login)
+	// If the value is empty, use default mount point (/auth/cert)
+	TLSAuthMountPoint string `hcl:"tls_auth_mount_point"`
 	// Path to a client certificate file.
 	// PEM and DER format is supported.
 	ClientCertPath string `hcl:"client_cert_path"`
 	// Path to a client private key file.
 	// PEM and DER format is supported.
 	ClientKeyPath string `hcl:"client_key_path"`
+}
+
+// VaultAppRoleAuthConfig represents parameters for AppRole auth method.
+type VaultAppRoleAuthConfig struct {
+	// Name of mount point where AppRole auth method is mounted. (e.g., /auth/<mount_point>/login)
+	// If the value is empty, use default mount point (/auth/approle)
+	AppRoleMountPoint string `hcl:"approle_auth_mount_point"`
+	// An identifier that selects the AppRole
+	RoleID string `hcl:"approle_id"`
+	// A credential that is required for login.
+	SecretID string `hcl:"approle_secret_id"`
 }
 
 // BuiltIn constructs a catalog Plugin using a new instance of this plugin.
@@ -117,7 +128,7 @@ func (p *VaultPlugin) Configure(ctx context.Context, req *spi.ConfigureRequest) 
 		}
 	}
 
-	am, err := vault.ParseAuthMethod(config.AuthMethod)
+	am, err := parseAuthMethod(config)
 	if err != nil {
 		return nil, err
 	}
@@ -125,14 +136,17 @@ func (p *VaultPlugin) Configure(ctx context.Context, req *spi.ConfigureRequest) 
 	vaultConfig := vault.New(am).WithEnvVar()
 	vaultConfig.Logger = p.logger
 	cp := &vault.ClientParams{
-		VaultAddr:         config.VaultAddr,
-		CACertPath:        config.CACertPath,
-		Token:             config.TokenAuthConfig.Token,
-		TLSAuthMountPoint: config.TLSAuthMountPoint,
-		PKIMountPoint:     config.PKIMountPoint,
-		ClientKeyPath:     config.CertAuthConfig.ClientKeyPath,
-		ClientCertPath:    config.CertAuthConfig.ClientCertPath,
-		TLSSKipVerify:     config.TLSSkipVerify,
+		VaultAddr:             config.VaultAddr,
+		CACertPath:            config.CACertPath,
+		Token:                 config.TokenAuthConfig.Token,
+		PKIMountPoint:         config.PKIMountPoint,
+		TLSAuthMountPoint:     config.CertAuthConfig.TLSAuthMountPoint,
+		ClientKeyPath:         config.CertAuthConfig.ClientKeyPath,
+		ClientCertPath:        config.CertAuthConfig.ClientCertPath,
+		AppRoleAuthMountPoint: config.AppRoleAuthConfig.AppRoleMountPoint,
+		AppRoleID:             config.AppRoleAuthConfig.RoleID,
+		AppRoleSecretID:       config.AppRoleAuthConfig.SecretID,
+		TLSSKipVerify:         config.TLSSkipVerify,
 	}
 	if err := vaultConfig.SetClientParams(cp); err != nil {
 		return nil, fmt.Errorf("failetd to prepare vault client")
@@ -209,6 +223,20 @@ func (p *VaultPlugin) SetLogger(log hclog.Logger) {
 
 func (p *VaultPlugin) GetPluginInfo(context.Context, *spi.GetPluginInfoRequest) (*spi.GetPluginInfoResponse, error) {
 	return &spi.GetPluginInfoResponse{}, nil
+}
+
+func parseAuthMethod(config *VaultPluginConfig) (vault.AuthMethod, error) {
+	if config.TokenAuthConfig.Token != "" {
+		return vault.TOKEN, nil
+	}
+	if config.CertAuthConfig.ClientCertPath != "" {
+		return vault.CERT, nil
+	}
+	if config.AppRoleAuthConfig.RoleID != "" {
+		return vault.APPROLE, nil
+	}
+
+	return 0, errors.New("must be configured one of these authentication method 'Token or Cert or AppRole'")
 }
 
 // validatePluginConfig validates value of VaultPluginConfig

@@ -170,6 +170,75 @@ func TestNewAuthenticatedClientWithTokenAuth(t *testing.T) {
 	}
 }
 
+func TestNewAuthenticatedClientWithAppRoleAuth(t *testing.T) {
+	vc := fake.NewVaultServerConfig()
+
+	appRoleAuthResp, err := ioutil.ReadFile("../fake/fixtures/approle-auth-response.json")
+	if err != nil {
+		t.Errorf("failed to load fixture: %v", err)
+	}
+	vc.ServerCertificatePemPath = serverCert
+	vc.ServerKeyPemPath = serverKey
+	vc.AppRoleAuthResponseCode = 200
+	vc.AppRoleAuthResponse = appRoleAuthResp
+
+	s, addr, err := vc.NewTLSServer()
+	if err != nil {
+		t.Errorf("failed to prepare test server: %v", err)
+	}
+	s.Start()
+	defer s.Close()
+
+	c := New(APPROLE)
+	c.Logger = getTestLogger()
+	cp := &ClientParams{
+		VaultAddr:       fmt.Sprintf("https://%v/", addr),
+		CACertPath:      caCert,
+		AppRoleID:       "test-approle-id",
+		AppRoleSecretID: "test-approle-secret-id",
+	}
+	if err := c.SetClientParams(cp); err != nil {
+		t.Errorf("failed to prepare test client: %v", err)
+	}
+
+	_, err = c.NewAuthenticatedClient()
+	if err != nil {
+		t.Errorf("unexpected error from NewAuthenticatedClient(): %v", err)
+	}
+}
+
+func TestNewAuthenticatedClientWithAppRoleAuthError(t *testing.T) {
+	vc := fake.NewVaultServerConfig()
+
+	vc.ServerCertificatePemPath = serverCert
+	vc.ServerKeyPemPath = serverKey
+	vc.AppRoleAuthResponseCode = 401
+
+	s, addr, err := vc.NewTLSServer()
+	if err != nil {
+		t.Errorf("failed to prepare test server: %v", err)
+	}
+	s.Start()
+	defer s.Close()
+
+	c := New(CERT)
+	c.Logger = getTestLogger()
+	cp := &ClientParams{
+		VaultAddr:       fmt.Sprintf("https://%v/", addr),
+		CACertPath:      caCert,
+		AppRoleID:       "test-approle-id",
+		AppRoleSecretID: "test-approle-secret-id",
+	}
+	if err := c.SetClientParams(cp); err != nil {
+		t.Errorf("failed to prepare test client: %v", err)
+	}
+
+	_, err = c.NewAuthenticatedClient()
+	if err == nil {
+		t.Error("expect an error but got nil")
+	}
+}
+
 func TestSetClientParams(t *testing.T) {
 	c := New(CERT)
 	c.Logger = getTestLogger()

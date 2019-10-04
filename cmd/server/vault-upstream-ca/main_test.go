@@ -48,8 +48,8 @@ func getTestLogger() hclog.Logger {
 	})
 }
 
-func getFakeConfigureRequestCertAuth(addr string) (*plugin.ConfigureRequest, error) {
-	file, err := ioutil.ReadFile("./fixtures/cert-auth-config.tpl")
+func getFakeConfigureRequest(addr string, fixturePath string) (*plugin.ConfigureRequest, error) {
+	file, err := ioutil.ReadFile(fixturePath)
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +146,42 @@ func TestConfigureCertConfig(t *testing.T) {
 	p.logger = getTestLogger()
 
 	ctx := context.Background()
-	req, err := getFakeConfigureRequestCertAuth(fmt.Sprintf("https://%v/", addr))
+	req, err := getFakeConfigureRequest(fmt.Sprintf("https://%v/", addr), "./fixtures/cert-auth-config.tpl")
+	if err != nil {
+		t.Errorf("failed to prepare request: %v", err)
+	}
+
+	_, err = p.Configure(ctx, req)
+	if err != nil {
+		t.Errorf("error from Configure(): %v", err)
+	}
+}
+
+func TestConfigureAppRoleConfig(t *testing.T) {
+	vc := fake.NewVaultServerConfig()
+
+	appRoleResp, err := ioutil.ReadFile("../../../pkg/fake/fixtures/approle-auth-response.json")
+	if err != nil {
+		t.Errorf("failed to load fixture: %v", err)
+	}
+	vc.ServerCertificatePemPath = fakeServerCert
+	vc.ServerKeyPemPath = fakeServerKey
+	vc.AppRoleAuthReqEndpoint = "/v1/auth/test-auth/login"
+	vc.AppRoleAuthResponseCode = 200
+	vc.AppRoleAuthResponse = appRoleResp
+
+	s, addr, err := vc.NewTLSServer()
+	if err != nil {
+		t.Errorf("failed to prepare test server: %v", err)
+	}
+	s.Start()
+	defer s.Close()
+
+	p := New()
+	p.logger = getTestLogger()
+
+	ctx := context.Background()
+	req, err := getFakeConfigureRequest(fmt.Sprintf("https://%v/", addr), "./fixtures/approle-auth-config.tpl")
 	if err != nil {
 		t.Errorf("failed to prepare request: %v", err)
 	}
