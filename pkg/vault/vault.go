@@ -24,14 +24,17 @@ import (
 )
 
 const (
-	envVaultAddr       = "VAULT_ADDR"
-	envVaultToken      = "VAULT_TOKEN"
-	envVaultClientCert = "VAULT_CLIENT_CERT"
-	envVaultClientKey  = "VAULT_CLIENT_KEY"
-	envVaultCACert     = "VAULT_CACERT"
+	envVaultAddr            = "VAULT_ADDR"
+	envVaultToken           = "VAULT_TOKEN"
+	envVaultClientCert      = "VAULT_CLIENT_CERT"
+	envVaultClientKey       = "VAULT_CLIENT_KEY"
+	envVaultCACert          = "VAULT_CACERT"
+	envVaultAppRoleID       = "VAULT_APPROLE_ID"
+	envVaultAppRoleSecretID = "VAULT_APPROLE_SECRET_ID"
 
-	DefaultCertMountPoint = "cert"
-	DefaultPKIMountPoint  = "pki"
+	DefaultCertMountPoint    = "cert"
+	DefaultPKIMountPoint     = "pki"
+	DefaultAppRoleMountPoint = "approle"
 )
 
 type AuthMethod int
@@ -40,18 +43,8 @@ const (
 	_ AuthMethod = iota
 	CERT
 	TOKEN
+	APPROLE
 )
-
-func ParseAuthMethod(method string) (AuthMethod, error) {
-	m := strings.ToUpper(method)
-	switch m {
-	case "CERT":
-		return CERT, nil
-	case "TOKEN":
-		return TOKEN, nil
-	}
-	return 0, fmt.Errorf("failed to parse AuthMethod: %v", method)
-}
 
 // Config represents configuration parameters for vault client
 type Config struct {
@@ -65,18 +58,24 @@ type Config struct {
 type ClientParams struct {
 	// A URL of Vault server. (e.g., https://vault.example.com:8443/)
 	VaultAddr string
-	// Name of mount point where TSL auth method is mounted. (e.g., /auth/<mount_point>/login )
-	TLSAuthMountPoint string
 	// Name of mount point where PKI secret engine is mounted. (e.e., /<mount_point>/ca/pem )
 	PKIMountPoint string
 	// token string to use when auth method is 'token'
 	Token string
+	// Name of mount point where TLS auth method is mounted. (e.g., /auth/<mount_point>/login )
+	TLSAuthMountPoint string
 	// Path to a client certificate file to be used when auth method is 'cert'
 	ClientCertPath string
 	// Path to a client private key file to be used when auth method is 'cert'
 	ClientKeyPath string
 	// Path to a CA certificate file to be used when client verifies a server certificate
 	CACertPath string
+	// Name of mount point where AppRole auth method is mounted. (e.g., /auth/<mount_point>/login )
+	AppRoleAuthMountPoint string
+	// An identifier of AppRole
+	AppRoleID string
+	// A credential set of AppRole
+	AppRoleSecretID string
 	// If true, client accepts any certificates.
 	// It should be used only test environment so on.
 	TLSSKipVerify bool
@@ -103,8 +102,9 @@ func New(authMethod AuthMethod) *Config {
 		Logger: hclog.New(hclog.DefaultOptions),
 		method: authMethod,
 		clientParams: &ClientParams{
-			TLSAuthMountPoint: DefaultCertMountPoint,
-			PKIMountPoint:     DefaultPKIMountPoint,
+			TLSAuthMountPoint:     DefaultCertMountPoint,
+			AppRoleAuthMountPoint: DefaultAppRoleMountPoint,
+			PKIMountPoint:         DefaultPKIMountPoint,
 		},
 	}
 }
@@ -119,6 +119,8 @@ func (c *Config) WithEnvVar() *Config {
 	c.clientParams.Token = os.Getenv(envVaultToken)
 	c.clientParams.ClientCertPath = os.Getenv(envVaultClientCert)
 	c.clientParams.ClientKeyPath = os.Getenv(envVaultClientKey)
+	c.clientParams.AppRoleID = os.Getenv(envVaultAppRoleID)
+	c.clientParams.AppRoleSecretID = os.Getenv(envVaultAppRoleSecretID)
 	return c
 }
 
@@ -156,27 +158,56 @@ func (c *Config) NewAuthenticatedClient() (*Client, error) {
 	case TOKEN:
 		client.SetToken(c.clientParams.Token)
 	case CERT:
-		sec, err := client.TLSAuth()
+		path := fmt.Sprintf("auth/%v/login", c.clientParams.TLSAuthMountPoint)
+		sec, err := client.Auth(path, map[string]interface{}{})
 		if err != nil {
 			return nil, err
 		}
 		if sec == nil {
-			return nil, errors.New("authentication response is nil")
+			return nil, errors.New("tls cert authentication response is nil")
 		}
 		if sec.Auth.Renewable {
 			c.Logger.Debug("token will be renewed")
-			renew, err := NewRenew(vc, sec)
-			renew.Logger = c.Logger
-			if err != nil {
+			if err := renewToken(vc, sec, c.Logger); err != nil {
 				return nil, err
 			}
-			go renew.Run()
+		} else {
+			c.Logger.Debug("token never renew")
+		}
+	case APPROLE:
+		path := fmt.Sprintf("auth/%v/login", c.clientParams.AppRoleAuthMountPoint)
+		body := map[string]interface{}{
+			"role_id":   c.clientParams.AppRoleID,
+			"secret_id": c.clientParams.AppRoleSecretID,
+		}
+		sec, err := client.Auth(path, body)
+		if err != nil {
+			return nil, err
+		}
+		if sec == nil {
+			return nil, errors.New("approle authentication response is nil")
+		}
+		if sec.Auth.Renewable {
+			c.Logger.Debug("token will be renewed")
+			if err := renewToken(vc, sec, c.Logger); err != nil {
+				return nil, err
+			}
 		} else {
 			c.Logger.Debug("token never renew")
 		}
 	}
 
 	return client, nil
+}
+
+func renewToken(vc *vapi.Client, sec *vapi.Secret, logger hclog.Logger) error {
+	renew, err := NewRenew(vc, sec)
+	if err != nil {
+		return err
+	}
+	renew.Logger = logger
+	go renew.Run()
+	return nil
 }
 
 // ConfigureTLS Configures TLS for Vault Client
@@ -249,13 +280,11 @@ func (c *Client) SetToken(v string) {
 }
 
 // TLSAuth authenticates to vault server with TLS certificate method
-func (c *Client) TLSAuth() (*vapi.Secret, error) {
+func (c *Client) Auth(path string, body map[string]interface{}) (*vapi.Secret, error) {
 	c.vaultClient.ClearToken()
-
-	path := fmt.Sprintf("auth/%v/login", c.clientParams.TLSAuthMountPoint)
-	secret, err := c.vaultClient.Logical().Write(path, map[string]interface{}{})
+	secret, err := c.vaultClient.Logical().Write(path, body)
 	if err != nil {
-		return nil, fmt.Errorf("authentication failed: %v", err)
+		return nil, fmt.Errorf("authentication failed %v: %v", path, err)
 	}
 
 	tokenId, err := secret.TokenID()

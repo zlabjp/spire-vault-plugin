@@ -16,6 +16,7 @@ import (
 
 const (
 	defaultTLSAuthEndpoint          = "/v1/auth/cert/login"
+	defaultAppRoleAuthEndpoint      = "/v1/auth/approle/login"
 	defaultSignIntermediateEndpoint = "/v1/pki/root/sign-intermediate"
 
 	listenAddr = "127.0.0.1:0"
@@ -29,6 +30,10 @@ type VaultServerConfig struct {
 	TLSAuthReqHandler            func(code int, resp []byte) func(http.ResponseWriter, *http.Request)
 	TLSAuthResponseCode          int
 	TLSAuthResponse              []byte
+	AppRoleAuthReqEndpoint       string
+	AppRoleAuthReqHandler        func(code int, resp []byte) func(w http.ResponseWriter, r *http.Request)
+	AppRoleAuthResponseCode      int
+	AppRoleAuthResponse          []byte
 	SignIntermediateReqEndpoint  string
 	SignIntermediateReqHandler   func(code int, resp []byte) func(http.ResponseWriter, *http.Request)
 	SignIntermediateResponseCode int
@@ -41,6 +46,8 @@ func NewVaultServerConfig() *VaultServerConfig {
 		ListenAddr:                  listenAddr,
 		TLSAuthReqEndpoint:          defaultTLSAuthEndpoint,
 		TLSAuthReqHandler:           defaultReqHandler,
+		AppRoleAuthReqEndpoint:      defaultAppRoleAuthEndpoint,
+		AppRoleAuthReqHandler:       defaultReqHandler,
 		SignIntermediateReqEndpoint: defaultSignIntermediateEndpoint,
 		SignIntermediateReqHandler:  defaultReqHandler,
 	}
@@ -69,6 +76,7 @@ func (v *VaultServerConfig) NewTLSServer() (srv *httptest.Server, addr string, e
 
 	mux := http.NewServeMux()
 	mux.HandleFunc(v.TLSAuthReqEndpoint, v.TLSAuthReqHandler(v.TLSAuthResponseCode, v.TLSAuthResponse))
+	mux.HandleFunc(v.AppRoleAuthReqEndpoint, v.AppRoleAuthReqHandler(v.AppRoleAuthResponseCode, v.AppRoleAuthResponse))
 	mux.HandleFunc(v.SignIntermediateReqEndpoint, v.SignIntermediateReqHandler(v.SignIntermediateResponseCode, v.SignIntermediateResponse))
 
 	srv = httptest.NewUnstartedServer(mux)
