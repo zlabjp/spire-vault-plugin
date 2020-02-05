@@ -53,7 +53,7 @@ type VaultPluginConfig struct {
 	// Configuration parameters to use AppRole auth method
 	AppRoleAuthConfig VaultAppRoleAuthConfig `hcl:"approle_auth_config"`
 	// Path to a CA certificate file that the client verifies the server certificate.
-	// PEM and DER format is supported.
+	// Only PEM format is supported.
 	CACertPath string `hcl:"ca_cert_path"`
 	// Request to issue a certificate with the specified TTL (Go-style time duration)
 	TTL string `hcl:"ttl"`
@@ -74,10 +74,10 @@ type VaultCertAuthConfig struct {
 	// If the value is empty, use default mount point (/auth/cert)
 	TLSAuthMountPoint string `hcl:"tls_auth_mount_point"`
 	// Path to a client certificate file.
-	// PEM and DER format is supported.
+	// Only PEM format is supported.
 	ClientCertPath string `hcl:"client_cert_path"`
 	// Path to a client private key file.
-	// PEM and DER format is supported.
+	// Only PEM format is supported.
 	ClientKeyPath string `hcl:"client_key_path"`
 }
 
