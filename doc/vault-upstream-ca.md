@@ -9,7 +9,7 @@ The plugin accepts the following configuration options:
 |:----|:-----|:---------|:------------|:--------|
 | vault_addr  | string |   | A URL of Vault server. (e.g., https://vault.example.com:8443/) | `${VAULT_ADDR}` |
 | pki_mount_point  | string |  | Name of mount point where PKI secret engine is mounted | pki |
-| ca_cert_path     | string |  | Path to a CA certificate file that the client verifies the server certificate. PEM and DER is supported. | `${VAULT_CACERT}` |
+| ca_cert_path     | string |  | Path to a CA certificate file that the client verifies the server certificate. Only PEM format is supported. | `${VAULT_CACERT}` |
 | ttl              | string |  | Request to issue a certificate with the specified TTL (Go-Style time duration value e.g., 1h)  | |
 | tls_skip_verify  | string |  | If true, vault client accepts any server certificates | false |
 | cert_auth_config | struct |  | Configuration parameters to use TLS cert auth method | |
@@ -24,8 +24,8 @@ The Plugin now supports **TLS certificate**, **Token** and **AppRole** authentic
 | key | type | required | description | default |
 |:----|:-----|:---------|:------------|:--------|
 | tls_auth_mount_point | string |  | Name of mount point where TLS auth method is mounted | cert |
-| client_cert_path | string | | Path to a client certificate file. PEM and DER is supported. | `${VAULT_CLIENT_CERT}` |
-| client_key_path  | string | | Path to a client private key file PEM and DER is supported. | `${VAULT_CLIENT_KEY}` |
+| client_cert_path | string | | Path to a client certificate file. Only PEM format is supported. | `${VAULT_CLIENT_CERT}` |
+| client_key_path  | string | | Path to a client private key file. Only PEM format is supported. | `${VAULT_CLIENT_KEY}` |
 
 ```hcl
     UpstreamCA "vault" {
