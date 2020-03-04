@@ -20,8 +20,8 @@ import (
 	"github.com/hashicorp/hcl"
 	"github.com/spiffe/spire/pkg/common/catalog"
 	"github.com/spiffe/spire/pkg/common/pemutil"
+	"github.com/spiffe/spire/pkg/server/plugin/upstreamca"
 	spi "github.com/spiffe/spire/proto/spire/common/plugin"
-	"github.com/spiffe/spire/proto/spire/server/upstreamca"
 
 	"github.com/zlabjp/spire-vault-plugin/pkg/common"
 	"github.com/zlabjp/spire-vault-plugin/pkg/vault"
