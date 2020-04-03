@@ -2,17 +2,11 @@
 
 ## Prerequisites
 
-- Go 1.12 or higher
+- Go 1.13 or higher
 
 ## Building
 
-We use `dep` for vendoring Go dependencies.
-If you add new dependencies, resolve dependencies as follows.
-
-```
-$ make vendor
-```
-
+We use Go Modules for vendoring Go dependencies. 
 And you can test and build codes as follows.
 
 ```
