@@ -33,10 +33,10 @@ func (r *Renew) Run() {
 		select {
 		case err := <-r.renewer.DoneCh():
 			if err != nil {
-				r.Logger.Warn("Failed to renew", "err", err.Error())
+				r.Logger.Warn("Failed to renew auth token", "err", err.Error())
 			}
 		case renewal := <-r.renewer.RenewCh():
-			r.Logger.Info("Successfully renewed", "request_id", renewal.Secret.RequestID)
+			r.Logger.Debug("Successfully renew auth token", "request_id", renewal.Secret.RequestID)
 		}
 	}
 }
