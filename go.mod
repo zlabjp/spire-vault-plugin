@@ -20,8 +20,8 @@ require (
 	github.com/pierrec/lz4 v2.4.1+incompatible // indirect
 	github.com/prometheus/client_golang v1.4.1 // indirect
 	github.com/prometheus/procfs v0.0.10 // indirect
-	github.com/spiffe/spire v0.9.3-0.20200402233944-8421b5132e61
-	github.com/spiffe/spire/proto/spire v0.9.3-0.20200402151450-130b73fa99e3
+	github.com/spiffe/spire v0.10.0
+	github.com/spiffe/spire/proto/spire v0.10.0
 	github.com/uber-go/tally v3.3.15+incompatible // indirect
 	github.com/zeebo/errs v1.2.2 // indirect
 	go.uber.org/atomic v1.6.0 // indirect
