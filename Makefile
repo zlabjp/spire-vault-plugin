@@ -19,6 +19,7 @@ build-darwin: build
 
 build: clean
 	cd cmd/server/vault-upstream-ca && GOOS=$(OS) GOARCH=amd64 go build -o ../../../$(out_dir)/server/vault_upstream_ca  -i
+	cd cmd/server/vault-upstream-authority && GOOS=$(OS) GOARCH=amd64 go build -o ../../../$(out_dir)/server/vault_upstream_authority  -i
 
 test:
 	go test -race ./cmd/... ./pkg/...
