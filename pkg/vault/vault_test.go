@@ -26,12 +26,12 @@ import (
 )
 
 const (
-	caCert     = "../fake/fixtures/ca.pem"
-	serverCert = "../fake/fixtures/server.pem"
-	serverKey  = "../fake/fixtures/server-key.pem"
-	clientCert = "../fake/fixtures/client.pem"
-	clientKey  = "../fake/fixtures/client-key.pem"
-	testReqCSR = "../fake/fixtures/test-req.csr"
+	caCert     = "../fake/_test_data/ca.pem"
+	serverCert = "../fake/_test_data/server.pem"
+	serverKey  = "../fake/_test_data/server-key.pem"
+	clientCert = "../fake/_test_data/client.pem"
+	clientKey  = "../fake/_test_data/client-key.pem"
+	testReqCSR = "../fake/_test_data/test-req.csr"
 	testReqCN  = "test request"
 	testTTL    = ""
 )
@@ -73,14 +73,14 @@ func getCertAndKeyPemBlock(certPath, keyPath string) (certPemBlock []byte, keyPe
 func TestNewAuthenticatedClientWithCertAuth(t *testing.T) {
 	vc := fake.NewVaultServerConfig()
 
-	tlsAuthResp, err := ioutil.ReadFile("../fake/fixtures/tls-auth-response.json")
+	certAuthResp, err := ioutil.ReadFile("../fake/_test_data/cert-auth-response.json")
 	if err != nil {
 		t.Errorf("failed to load fixture: %v", err)
 	}
 	vc.ServerCertificatePemPath = serverCert
 	vc.ServerKeyPemPath = serverKey
-	vc.TLSAuthResponseCode = 200
-	vc.TLSAuthResponse = tlsAuthResp
+	vc.CertAuthResponseCode = 200
+	vc.CertAuthResponse = certAuthResp
 
 	s, addr, err := vc.NewTLSServer()
 	if err != nil {
@@ -112,7 +112,7 @@ func TestNewAuthenticatedClientWithCertAuthError(t *testing.T) {
 
 	vc.ServerCertificatePemPath = serverCert
 	vc.ServerKeyPemPath = serverKey
-	vc.TLSAuthResponseCode = 500
+	vc.CertAuthResponseCode = 500
 
 	s, addr, err := vc.NewTLSServer()
 	if err != nil {
@@ -123,7 +123,10 @@ func TestNewAuthenticatedClientWithCertAuthError(t *testing.T) {
 
 	c := New(CERT)
 	c.Logger = getTestLogger()
+
+	retry := 0
 	cp := &ClientParams{
+		MaxRetries:     &retry,
 		VaultAddr:      fmt.Sprintf("https://%v/", addr),
 		CACertPath:     caCert,
 		ClientCertPath: clientCert,
@@ -155,10 +158,9 @@ func TestNewAuthenticatedClientWithTokenAuth(t *testing.T) {
 	c := New(TOKEN)
 	c.Logger = getTestLogger()
 	cp := &ClientParams{
-		VaultAddr:      fmt.Sprintf("https://%v/", addr),
-		CACertPath:     caCert,
-		ClientCertPath: clientCert,
-		ClientKeyPath:  clientKey,
+		VaultAddr:  fmt.Sprintf("https://%v/", addr),
+		CACertPath: caCert,
+		Token:      "test-token",
 	}
 	if err := c.SetClientParams(cp); err != nil {
 		t.Errorf("failed to prepare test client: %v", err)
@@ -173,7 +175,7 @@ func TestNewAuthenticatedClientWithTokenAuth(t *testing.T) {
 func TestNewAuthenticatedClientWithAppRoleAuth(t *testing.T) {
 	vc := fake.NewVaultServerConfig()
 
-	appRoleAuthResp, err := ioutil.ReadFile("../fake/fixtures/approle-auth-response.json")
+	appRoleAuthResp, err := ioutil.ReadFile("../fake/_test_data/approle-auth-response.json")
 	if err != nil {
 		t.Errorf("failed to load fixture: %v", err)
 	}
@@ -221,9 +223,12 @@ func TestNewAuthenticatedClientWithAppRoleAuthError(t *testing.T) {
 	s.Start()
 	defer s.Close()
 
-	c := New(CERT)
+	c := New(APPROLE)
 	c.Logger = getTestLogger()
+
+	retry := 0
 	cp := &ClientParams{
+		MaxRetries:      &retry,
 		VaultAddr:       fmt.Sprintf("https://%v/", addr),
 		CACertPath:      caCert,
 		AppRoleID:       "test-approle-id",
@@ -296,9 +301,6 @@ func TestConfigureTLSWithCertAuth(t *testing.T) {
 		t.Errorf("failed to prepare certificate: %v", err)
 	}
 
-	if err := c.ConfigureTLS(vConfig); err != nil {
-		t.Errorf("error from ConfigureTLS(): %v", err)
-	}
 	tp := vConfig.HttpClient.Transport.(*http.Transport).TLSClientConfig
 	cert, err := tp.GetClientCertificate(&tls.CertificateRequestInfo{})
 	if err != nil {
@@ -341,20 +343,27 @@ func TestConfigureTLSWithTokenAuth(t *testing.T) {
 func TestSignIntermediate(t *testing.T) {
 	vc := fake.NewVaultServerConfig()
 
-	tlsAuthResp, err := ioutil.ReadFile("../fake/fixtures/tls-auth-response.json")
+	certAuthResp, err := ioutil.ReadFile("../fake/_test_data/cert-auth-response.json")
 	if err != nil {
 		t.Errorf("failed to load fixture: %v", err)
 	}
-	signResp, err := ioutil.ReadFile("../fake/fixtures/sign-intermediate-response.json")
+	signResp, err := ioutil.ReadFile("../fake/_test_data/sign-intermediate-response.json")
 	if err != nil {
 		t.Errorf("failed to load fixture: %v", err)
 	}
+	renewResp, err := ioutil.ReadFile("../fake/_test_data/renew-response.json")
+	if err != nil {
+		t.Errorf("failed to load fixture: %v", err)
+	}
+
 	vc.ServerCertificatePemPath = serverCert
 	vc.ServerKeyPemPath = serverKey
-	vc.TLSAuthResponseCode = 200
-	vc.TLSAuthResponse = tlsAuthResp
+	vc.CertAuthResponseCode = 200
+	vc.CertAuthResponse = certAuthResp
 	vc.SignIntermediateResponseCode = 200
 	vc.SignIntermediateResponse = signResp
+	vc.RenewResponseCode = 200
+	vc.RenewResponse = renewResp
 
 	s, addr, err := vc.NewTLSServer()
 	if err != nil {
@@ -401,15 +410,22 @@ func TestSignIntermediate(t *testing.T) {
 func TestSignIntermediateError(t *testing.T) {
 	vc := fake.NewVaultServerConfig()
 
-	tlsAuthResp, err := ioutil.ReadFile("../fake/fixtures/tls-auth-response.json")
+	certAuthResp, err := ioutil.ReadFile("../fake/_test_data/cert-auth-response.json")
 	if err != nil {
 		t.Errorf("failed to load fixture: %v", err)
 	}
+	renewResp, err := ioutil.ReadFile("../fake/_test_data/renew-response.json")
+	if err != nil {
+		t.Errorf("failed to load fixture: %v", err)
+	}
+
 	vc.ServerCertificatePemPath = serverCert
 	vc.ServerKeyPemPath = serverKey
-	vc.TLSAuthResponseCode = 200
-	vc.TLSAuthResponse = tlsAuthResp
+	vc.CertAuthResponseCode = 200
+	vc.CertAuthResponse = certAuthResp
 	vc.SignIntermediateResponseCode = 404
+	vc.RenewResponseCode = 200
+	vc.RenewResponse = renewResp
 
 	s, addr, err := vc.NewTLSServer()
 	if err != nil {
@@ -420,6 +436,9 @@ func TestSignIntermediateError(t *testing.T) {
 
 	c := New(CERT)
 	c.Logger = getTestLogger()
+
+	retry := 0
+	c.clientParams.MaxRetries = &retry
 	c.clientParams.VaultAddr = fmt.Sprintf("https://%v/", addr)
 	c.clientParams.CACertPath = caCert
 	c.clientParams.ClientCertPath = clientCert

@@ -28,16 +28,15 @@ import (
 )
 
 const (
-	fakeServerCert = "../../../pkg/fake/fixtures/server.pem"
-	fakeServerKey  = "../../../pkg/fake/fixtures/server-key.pem"
-	fakeCaCert     = "../../../pkg/fake/fixtures/ca.pem"
-	fakeClientCert = "../../../pkg/fake/fixtures/client.pem"
-	fakeClientKey  = "../../../pkg/fake/fixtures/client-key.pem"
+	fakeServerCert = "../../../pkg/fake/_test_data/server.pem"
+	fakeServerKey  = "../../../pkg/fake/_test_data/server-key.pem"
+	fakeCaCert     = "../../../pkg/fake/_test_data/ca.pem"
+	fakeClientCert = "../../../pkg/fake/_test_data/client.pem"
+	fakeClientKey  = "../../../pkg/fake/_test_data/client-key.pem"
 )
 
 type configParam struct {
-	Addr  string
-	Token string
+	Addr string
 }
 
 func getTestLogger() hclog.Logger {
@@ -71,33 +70,11 @@ func getFakeConfigureRequest(addr string, fixturePath string) (*plugin.Configure
 	}, nil
 }
 
-func getFakeConfigureRequestTokenAuth(addr, token string) (*plugin.ConfigureRequest, error) {
-	file, err := ioutil.ReadFile("./fixtures/token-auth-config.tpl")
-	if err != nil {
-		return nil, err
-	}
-	t, err := template.New("plugin config").Parse(string(file))
-	if err != nil {
-		return nil, err
-	}
-	cp := &configParam{
-		Addr:  addr,
-		Token: token,
-	}
-
-	var c bytes.Buffer
-	if err := t.Execute(&c, cp); err != nil {
-		return nil, err
-	}
-
-	return &plugin.ConfigureRequest{
-		Configuration: c.String(),
-	}, nil
-}
-
 func getFakeVaultClientWithCertAuth(addr, authMountP, pkiMountP string) (*vault.Client, error) {
 	vaultConfig := vault.New(vault.CERT)
+	retry := 0
 	cp := &vault.ClientParams{
+		MaxRetries:        &retry,
 		VaultAddr:         fmt.Sprintf("https://%v/", addr),
 		CACertPath:        fakeCaCert,
 		TLSAuthMountPoint: authMountP,
@@ -126,15 +103,15 @@ func getFakeMintX509CARequest(csr []byte) (*upstreamauthority.MintX509CARequest,
 func TestConfigureCertConfig(t *testing.T) {
 	vc := fake.NewVaultServerConfig()
 
-	tlsAuthResp, err := ioutil.ReadFile("../../../pkg/fake/fixtures/tls-auth-response.json")
+	certAuthResp, err := ioutil.ReadFile("../../../pkg/fake/_test_data/cert-auth-response.json")
 	if err != nil {
 		t.Errorf("failed to load fixture: %v", err)
 	}
 	vc.ServerCertificatePemPath = fakeServerCert
 	vc.ServerKeyPemPath = fakeServerKey
-	vc.TLSAuthReqEndpoint = "/v1/auth/test-auth/login"
-	vc.TLSAuthResponseCode = 200
-	vc.TLSAuthResponse = tlsAuthResp
+	vc.CertAuthReqEndpoint = "/v1/auth/test-auth/login"
+	vc.CertAuthResponseCode = 200
+	vc.CertAuthResponse = certAuthResp
 
 	s, addr, err := vc.NewTLSServer()
 	if err != nil {
@@ -147,7 +124,7 @@ func TestConfigureCertConfig(t *testing.T) {
 	p.logger = getTestLogger()
 
 	ctx := context.Background()
-	req, err := getFakeConfigureRequest(fmt.Sprintf("https://%v/", addr), "./fixtures/cert-auth-config.tpl")
+	req, err := getFakeConfigureRequest(fmt.Sprintf("https://%v/", addr), "./_test_data/cert-auth-config.tpl")
 	if err != nil {
 		t.Errorf("failed to prepare request: %v", err)
 	}
@@ -161,7 +138,7 @@ func TestConfigureCertConfig(t *testing.T) {
 func TestConfigureAppRoleConfig(t *testing.T) {
 	vc := fake.NewVaultServerConfig()
 
-	appRoleResp, err := ioutil.ReadFile("../../../pkg/fake/fixtures/approle-auth-response.json")
+	appRoleResp, err := ioutil.ReadFile("../../../pkg/fake/_test_data/approle-auth-response.json")
 	if err != nil {
 		t.Errorf("failed to load fixture: %v", err)
 	}
@@ -182,7 +159,7 @@ func TestConfigureAppRoleConfig(t *testing.T) {
 	p.logger = getTestLogger()
 
 	ctx := context.Background()
-	req, err := getFakeConfigureRequest(fmt.Sprintf("https://%v/", addr), "./fixtures/approle-auth-config.tpl")
+	req, err := getFakeConfigureRequest(fmt.Sprintf("https://%v/", addr), "./_test_data/approle-auth-config.tpl")
 	if err != nil {
 		t.Errorf("failed to prepare request: %v", err)
 	}
@@ -209,7 +186,7 @@ func TestConfigureTokenConfig(t *testing.T) {
 	p.logger = getTestLogger()
 
 	ctx := context.Background()
-	req, err := getFakeConfigureRequestTokenAuth(fmt.Sprintf("https://%v/", addr), "test-token")
+	req, err := getFakeConfigureRequest(fmt.Sprintf("https://%v/", addr), "./_test_data/token-auth-config.tpl")
 	if err != nil {
 		t.Errorf("failed to prepare request: %v", err)
 	}
@@ -221,7 +198,7 @@ func TestConfigureTokenConfig(t *testing.T) {
 }
 
 func TestConfigureErrorInvalidTTL(t *testing.T) {
-	file, err := ioutil.ReadFile("./fixtures/invalid-ttl.hcl")
+	file, err := ioutil.ReadFile("./_test_data/invalid-ttl.hcl")
 	if err != nil {
 		t.Errorf("failed to read fixture file: %v", err)
 	}
@@ -261,11 +238,15 @@ func TestConfigureError(t *testing.T) {
 }
 
 func TestMintX509CA(t *testing.T) {
-	tlsAuthResp, err := ioutil.ReadFile("../../../pkg/fake/fixtures/tls-auth-response.json")
+	certAuthResp, err := ioutil.ReadFile("../../../pkg/fake/_test_data/cert-auth-response.json")
 	if err != nil {
 		t.Errorf("failed to load fixture: %v", err)
 	}
-	signResp, err := ioutil.ReadFile("../../../pkg/fake/fixtures/sign-intermediate-response.json")
+	signResp, err := ioutil.ReadFile("../../../pkg/fake/_test_data/sign-intermediate-response.json")
+	if err != nil {
+		t.Errorf("failed to load fixture: %v", err)
+	}
+	renewResp, err := ioutil.ReadFile("../../../pkg/fake/_test_data/renew-response.json")
 	if err != nil {
 		t.Errorf("failed to load fixture: %v", err)
 	}
@@ -302,10 +283,12 @@ func TestMintX509CA(t *testing.T) {
 	vc := fake.NewVaultServerConfig()
 	vc.ServerCertificatePemPath = fakeServerCert
 	vc.ServerKeyPemPath = fakeServerKey
-	vc.TLSAuthReqEndpoint = "/v1/auth/test-auth/login"
-	vc.TLSAuthResponseCode = 200
-	vc.TLSAuthResponse = tlsAuthResp
+	vc.CertAuthReqEndpoint = "/v1/auth/test-auth/login"
+	vc.CertAuthResponseCode = 200
+	vc.CertAuthResponse = certAuthResp
 	vc.SignIntermediateReqEndpoint = "/v1/test-pki/root/sign-intermediate"
+	vc.RenewResponseCode = 200
+	vc.RenewResponse = renewResp
 
 	for i, tc := range tCases {
 		vc.SignIntermediateResponseCode = tc.signIntermediateResponseCode
@@ -325,7 +308,7 @@ func TestMintX509CA(t *testing.T) {
 		}
 		p.vc = client
 
-		testCSR, err := ioutil.ReadFile("../../../pkg/fake/fixtures/test-req.csr")
+		testCSR, err := ioutil.ReadFile("../../../pkg/fake/_test_data/test-req.csr")
 		if err != nil {
 			t.Errorf("failed to load fixture: %v", err)
 		}
