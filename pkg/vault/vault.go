@@ -79,6 +79,10 @@ type ClientParams struct {
 	// If true, client accepts any certificates.
 	// It should be used only test environment so on.
 	TLSSKipVerify bool
+	// MaxRetries controls the number of times to retry to connect
+	// Set to 0 to disable retrying.
+	// If the value is nil, to use the default in hashicorp/vault/api.
+	MaxRetries *int
 }
 
 type Client struct {
@@ -140,6 +144,10 @@ func (c *Config) SetClientParams(p *ClientParams) error {
 func (c *Config) NewAuthenticatedClient() (*Client, error) {
 	config := vapi.DefaultConfig()
 	config.Address = c.clientParams.VaultAddr
+
+	if c.clientParams.MaxRetries != nil {
+		config.MaxRetries = *c.clientParams.MaxRetries
+	}
 
 	if err := c.ConfigureTLS(config); err != nil {
 		return nil, err
@@ -296,7 +304,7 @@ func (c *Client) Auth(path string, body map[string]interface{}) (*vapi.Secret, e
 }
 
 // SignIntermediate requests sign-intermediate endpoint to generate certificate.
-// cn = Common Name
+// ttl = Issue Intermediate CA Certificate by given TTL
 // csr = PEM format CSR
 // see: https://www.vaultproject.io/api/secret/pki/index.html#sign-intermediate
 func (c *Client) SignIntermediate(ttl string, csr []byte) (*SignCSRResponse, error) {

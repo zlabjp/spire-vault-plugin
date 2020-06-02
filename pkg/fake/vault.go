@@ -15,9 +15,10 @@ import (
 )
 
 const (
-	defaultTLSAuthEndpoint          = "/v1/auth/cert/login"
+	defaultCertAuthEndpoint         = "/v1/auth/cert/login"
 	defaultAppRoleAuthEndpoint      = "/v1/auth/approle/login"
 	defaultSignIntermediateEndpoint = "/v1/pki/root/sign-intermediate"
+	defaultRenewEndpoint            = "/v1/auth/token/renew-self"
 
 	listenAddr = "127.0.0.1:0"
 )
@@ -26,10 +27,10 @@ type VaultServerConfig struct {
 	ListenAddr                   string
 	ServerCertificatePemPath     string
 	ServerKeyPemPath             string
-	TLSAuthReqEndpoint           string
-	TLSAuthReqHandler            func(code int, resp []byte) func(http.ResponseWriter, *http.Request)
-	TLSAuthResponseCode          int
-	TLSAuthResponse              []byte
+	CertAuthReqEndpoint          string
+	CertAuthReqHandler           func(code int, resp []byte) func(http.ResponseWriter, *http.Request)
+	CertAuthResponseCode         int
+	CertAuthResponse             []byte
 	AppRoleAuthReqEndpoint       string
 	AppRoleAuthReqHandler        func(code int, resp []byte) func(w http.ResponseWriter, r *http.Request)
 	AppRoleAuthResponseCode      int
@@ -38,18 +39,24 @@ type VaultServerConfig struct {
 	SignIntermediateReqHandler   func(code int, resp []byte) func(http.ResponseWriter, *http.Request)
 	SignIntermediateResponseCode int
 	SignIntermediateResponse     []byte
+	RenewReqEndpoint             string
+	RenewReqHandler              func(code int, resp []byte) func(http.ResponseWriter, *http.Request)
+	RenewResponseCode            int
+	RenewResponse                []byte
 }
 
 // NewVaultServerConfig returns VaultServerConfig with default values
 func NewVaultServerConfig() *VaultServerConfig {
 	return &VaultServerConfig{
 		ListenAddr:                  listenAddr,
-		TLSAuthReqEndpoint:          defaultTLSAuthEndpoint,
-		TLSAuthReqHandler:           defaultReqHandler,
+		CertAuthReqEndpoint:         defaultCertAuthEndpoint,
+		CertAuthReqHandler:          defaultReqHandler,
 		AppRoleAuthReqEndpoint:      defaultAppRoleAuthEndpoint,
 		AppRoleAuthReqHandler:       defaultReqHandler,
 		SignIntermediateReqEndpoint: defaultSignIntermediateEndpoint,
 		SignIntermediateReqHandler:  defaultReqHandler,
+		RenewReqEndpoint:            defaultRenewEndpoint,
+		RenewReqHandler:             defaultReqHandler,
 	}
 }
 
@@ -75,9 +82,10 @@ func (v *VaultServerConfig) NewTLSServer() (srv *httptest.Server, addr string, e
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc(v.TLSAuthReqEndpoint, v.TLSAuthReqHandler(v.TLSAuthResponseCode, v.TLSAuthResponse))
+	mux.HandleFunc(v.CertAuthReqEndpoint, v.CertAuthReqHandler(v.CertAuthResponseCode, v.CertAuthResponse))
 	mux.HandleFunc(v.AppRoleAuthReqEndpoint, v.AppRoleAuthReqHandler(v.AppRoleAuthResponseCode, v.AppRoleAuthResponse))
 	mux.HandleFunc(v.SignIntermediateReqEndpoint, v.SignIntermediateReqHandler(v.SignIntermediateResponseCode, v.SignIntermediateResponse))
+	mux.HandleFunc(v.RenewReqEndpoint, v.RenewReqHandler(v.RenewResponseCode, v.RenewResponse))
 
 	srv = httptest.NewUnstartedServer(mux)
 	srv.Listener = l

@@ -1,0 +1,11 @@
+{
+  "auth": {
+    "client_token": "test-client-token",
+    "policies": ["app", "test"],
+    "metadata": {
+      "user": "test"
+    },
+    "lease_duration": 3600,
+    "renewable": true
+  }
+}
