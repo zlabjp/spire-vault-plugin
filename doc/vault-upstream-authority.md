@@ -31,7 +31,8 @@ The Plugin now supports **TLS certificate**, **Token** and **AppRole** authentic
 
 | key | type | required | description | default |
 |:----|:-----|:---------|:------------|:--------|
-| tls_auth_mount_point | string |  | Name of mount point where TLS auth method is mounted | cert |
+| tls_auth_mount_point | string |  | **(Deprecated)** Name of mount point where TLS auth method is mounted | cert |
+| cert_auth_mount_point | string |  | Name of mount point where TLS Cert auth method is mounted | cert |
 | client_cert_path | string | | Path to a client certificate file. Only PEM format is supported. | `${VAULT_CLIENT_CERT}` |
 | client_key_path  | string | | Path to a client private key file. Only PEM format is supported. | `${VAULT_CLIENT_KEY}` |
 
@@ -44,7 +45,7 @@ The Plugin now supports **TLS certificate**, **Token** and **AppRole** authentic
             pki_mount_point = "test-pki"
             ca_cert_path = "/path/to/ca-cert.pem"
             cert_auth_config {
-                tls_auth_mount_point = "test-tls-auth"
+                cert_auth_mount_point = "test-tls-auth"
                 client_cert_path = "/path/to/client-cert.pem"
                 client_key_path  = "/path/to/client-key.pem"
             }

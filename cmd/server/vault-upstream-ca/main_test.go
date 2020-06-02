@@ -75,13 +75,13 @@ func getFakeVaultClientWithCertAuth(addr, authMountP, pkiMountP string) (*vault.
 	vaultConfig := vault.New(vault.CERT)
 	retry := 0
 	cp := &vault.ClientParams{
-		MaxRetries:        &retry,
-		VaultAddr:         fmt.Sprintf("https://%v/", addr),
-		CACertPath:        fakeCaCert,
-		TLSAuthMountPoint: authMountP,
-		PKIMountPoint:     pkiMountP,
-		ClientKeyPath:     fakeClientKey,
-		ClientCertPath:    fakeClientCert,
+		MaxRetries:         &retry,
+		VaultAddr:          fmt.Sprintf("https://%v/", addr),
+		CACertPath:         fakeCaCert,
+		CertAuthMountPoint: authMountP,
+		PKIMountPoint:      pkiMountP,
+		ClientKeyPath:      fakeClientKey,
+		ClientCertPath:     fakeClientCert,
 	}
 	if err := vaultConfig.SetClientParams(cp); err != nil {
 		return nil, fmt.Errorf("failetd to prepare vault client")
