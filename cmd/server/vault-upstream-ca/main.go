@@ -140,7 +140,7 @@ func (p *VaultPlugin) Configure(ctx context.Context, req *spi.ConfigureRequest) 
 		CACertPath:            config.CACertPath,
 		Token:                 config.TokenAuthConfig.Token,
 		PKIMountPoint:         config.PKIMountPoint,
-		TLSAuthMountPoint:     config.CertAuthConfig.TLSAuthMountPoint,
+		CertAuthMountPoint:    config.CertAuthConfig.TLSAuthMountPoint,
 		ClientKeyPath:         config.CertAuthConfig.ClientKeyPath,
 		ClientCertPath:        config.CertAuthConfig.ClientCertPath,
 		AppRoleAuthMountPoint: config.AppRoleAuthConfig.AppRoleMountPoint,

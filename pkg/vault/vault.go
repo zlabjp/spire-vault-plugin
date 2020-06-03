@@ -62,8 +62,8 @@ type ClientParams struct {
 	PKIMountPoint string
 	// token string to use when auth method is 'token'
 	Token string
-	// Name of mount point where TLS auth method is mounted. (e.g., /auth/<mount_point>/login )
-	TLSAuthMountPoint string
+	// Name of mount point where TLS Cert auth method is mounted. (e.g., /auth/<mount_point>/login )
+	CertAuthMountPoint string
 	// Path to a client certificate file to be used when auth method is 'cert'
 	ClientCertPath string
 	// Path to a client private key file to be used when auth method is 'cert'
@@ -106,7 +106,7 @@ func New(authMethod AuthMethod) *Config {
 		Logger: hclog.New(hclog.DefaultOptions),
 		method: authMethod,
 		clientParams: &ClientParams{
-			TLSAuthMountPoint:     DefaultCertMountPoint,
+			CertAuthMountPoint:    DefaultCertMountPoint,
 			AppRoleAuthMountPoint: DefaultAppRoleMountPoint,
 			PKIMountPoint:         DefaultPKIMountPoint,
 		},
@@ -166,7 +166,7 @@ func (c *Config) NewAuthenticatedClient() (*Client, error) {
 	case TOKEN:
 		client.SetToken(c.clientParams.Token)
 	case CERT:
-		path := fmt.Sprintf("auth/%v/login", c.clientParams.TLSAuthMountPoint)
+		path := fmt.Sprintf("auth/%v/login", c.clientParams.CertAuthMountPoint)
 		sec, err := client.Auth(path, map[string]interface{}{})
 		if err != nil {
 			return nil, err

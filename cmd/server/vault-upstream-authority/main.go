@@ -60,9 +60,12 @@ type VaultTokenAuthConfig struct {
 
 // VaultCertAuthConfig represents parameters for cert auth method
 type VaultCertAuthConfig struct {
-	// Name of mount point where TLS auth method is mounted. (e.g., /auth/<mount_point>/login)
+	// (Deprecated) Name of mount point where TLS auth method is mounted. (e.g., /auth/<mount_point>/login)
 	// If the value is empty, use default mount point (/auth/cert)
 	TLSAuthMountPoint string `hcl:"tls_auth_mount_point"`
+	// Name of mount point where TLS Cert auth method is mounted. (e.g., /auth/<mount_point>/login)
+	// If the value is empty, use default mount point (/auth/cert)
+	CertAuthMountPoint string `hcl:"cert_auth_mount_point"`
 	// Path to a client certificate file.
 	// Only PEM format is supported.
 	ClientCertPath string `hcl:"client_cert_path"`
@@ -132,6 +135,12 @@ func (p *VaultPlugin) Configure(ctx context.Context, req *spi.ConfigureRequest) 
 		}
 	}
 
+	certAuthMountPoint := config.CertAuthConfig.CertAuthMountPoint
+	if config.CertAuthConfig.TLSAuthMountPoint != "" {
+		p.logger.Warn("'tls_auth_mount_point' is deprecated, so use 'cert_auth_mount_point' instead.")
+		certAuthMountPoint = config.CertAuthConfig.TLSAuthMountPoint
+	}
+
 	am, err := parseAuthMethod(config)
 	if err != nil {
 		return nil, err
@@ -144,7 +153,7 @@ func (p *VaultPlugin) Configure(ctx context.Context, req *spi.ConfigureRequest) 
 		CACertPath:            config.CACertPath,
 		Token:                 config.TokenAuthConfig.Token,
 		PKIMountPoint:         config.PKIMountPoint,
-		TLSAuthMountPoint:     config.CertAuthConfig.TLSAuthMountPoint,
+		CertAuthMountPoint:    certAuthMountPoint,
 		ClientKeyPath:         config.CertAuthConfig.ClientKeyPath,
 		ClientCertPath:        config.CertAuthConfig.ClientCertPath,
 		AppRoleAuthMountPoint: config.AppRoleAuthConfig.AppRoleMountPoint,
